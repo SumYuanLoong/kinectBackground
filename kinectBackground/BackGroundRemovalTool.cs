@@ -84,7 +84,7 @@ namespace kinectBackground
 		#endregion
 
 
-		public BitmapSource GreenScreen(ColorFrame colorFrame, DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame, ulong /*, BodyFrame bodyFrame*/) {
+		public BitmapSource GreenScreen(ColorFrame colorFrame, DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame, ulong skeleID/*, BodyFrame bodyFrame*/) {
 			int colorWidth = colorFrame.FrameDescription.Width;
 			int colorHeight = colorFrame.FrameDescription.Height;
 

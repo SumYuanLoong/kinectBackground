@@ -9,20 +9,11 @@ namespace kinectBackground
 {
 	class Token
 	{
-		public ulong skeletonID {
-			get { return this.skeletonID; }
-			set	{ this.skeletonID = value; }
-		}
-		public int serToken
-		{
-			get { return this.serToken; }
-			set { this.serToken = value; }
-		}
-		public string Username
-		{
-			get { return this.Username; }
-			set { this.Username = value; }
-		}
+		public ulong skeletonID;
+		public int serToken;
+
+		public string Username;
+
 
 		public bool compareSkeleton(ulong Id) {
 			return Id.Equals(skeletonID);

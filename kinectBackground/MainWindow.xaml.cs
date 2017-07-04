@@ -36,6 +36,7 @@ namespace kinectBackground
 		public MainWindow() {
 			InitializeComponent();
 			_token = new Token();
+			_token.skeletonID = 0xff;
 			userActive = false;
 		}
 		private void Window_Loaded(object sender, RoutedEventArgs e) {
@@ -68,46 +69,53 @@ namespace kinectBackground
 		void Reader_MultiSourceFrameArrived(object sender, MultiSourceFrameArrivedEventArgs e) {
 			//init the frames
 			var reference = e.FrameReference.AcquireFrame();
-			var colorFrame = reference.ColorFrameReference.AcquireFrame();
-			var depthFrame = reference.DepthFrameReference.AcquireFrame();
-			var bodyIndexFrame = reference.BodyIndexFrameReference.AcquireFrame();
-			var bodyCountFrame = reference.BodyFrameReference.AcquireFrame();
-
-			// repopultate the body List
-			_bodies = new Body[bodyCountFrame.BodyFrameSource.BodyCount];
-			bodyCountFrame.GetAndRefreshBodyData(_bodies);
-
-			//when there is no user using the system
-			if (!userActive)
+			using (var colorFrame = reference.ColorFrameReference.AcquireFrame())
+			using (var depthFrame = reference.DepthFrameReference.AcquireFrame())
+			using (var bodyIndexFrame = reference.BodyIndexFrameReference.AcquireFrame())
+			using (var bodyCountFrame = reference.BodyFrameReference.AcquireFrame())
 			{
-				//find a user
-				
-				foreach (var body in _bodies)
+
+				//repopultate the body List
+				if (bodyCountFrame != null)
 				{
-					var point = body.Joints[JointType.SpineBase].Position;
-					var distance = Length(point);
-					if (distance < 2.3)
+					_bodies = new Body[bodyCountFrame.BodyFrameSource.BodyCount];
+					bodyCountFrame.GetAndRefreshBodyData(_bodies);
+
+
+
+					//when there is no user using the system
+					if (!userActive)
 					{
-						// authenticate him
-						_token.skeletonID=lowestDist(_bodies);
-						userActive = true;
-						//fkbtn(); //checks with server that the user is registered
-						break;
+						//find a user
+
+						foreach (var body in _bodies)
+						{
+							var point = body.Joints[JointType.SpineBase].Position;
+							var distance = Length(point);
+							if (distance < 2.3)
+							{
+								// authenticate him
+								_token.skeletonID = lowestDist(_bodies);
+								userActive = true;
+								//fkbtn(); //checks with server that the user is registered
+								break;
+							}
+							Console.WriteLine("nouser close enough")
+						}
+					}
+
+					if (userActive && _token.compareSkeleton(lowestDist(_bodies)))
+					{
+						removeBG(colorFrame, depthFrame, bodyIndexFrame, _token.skeletonID);
+
+					} else
+					{
+						Console.WriteLine("token is invalidated");
+						invalidToken();
+						userActive = false;
 					}
 				}
 			}
-
-			if (userActive&& _token.compareSkeleton(lowestDist(_bodies)))
-			{
-				removeBG(colorFrame, depthFrame, bodyIndexFrame, _token.skeletonID);
-
-			} else
-			{
-				Console.WriteLine("token is invalidated");
-				invalidToken();
-				userActive = false;
-			}
-
 
 			//try
 			//{
