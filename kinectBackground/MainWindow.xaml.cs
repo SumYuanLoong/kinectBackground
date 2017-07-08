@@ -13,6 +13,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Microsoft.Kinect;
+using Microsoft.Kinect.Wpf.Controls;
 using LightBuzz.Vitruvius;
 
 namespace kinectBackground
@@ -29,7 +30,7 @@ namespace kinectBackground
 		//Background removal stuff
 		BackGroundRemovalTool _back;
 		IList<Body> _bodies;
-		double distance=9;
+		double distance;
 		Token _token;
 		bool userActive;
 
@@ -38,6 +39,7 @@ namespace kinectBackground
 			_token = new Token();
 			_token.skeletonID = 0xff;
 			userActive = false;
+			distance = 9;
 		}
 		private void Window_Loaded(object sender, RoutedEventArgs e) {
 			kinect = KinectSensor.GetDefault();
@@ -49,7 +51,7 @@ namespace kinectBackground
 				// 2) Initialize the background removal tool.
 				_back = new BackGroundRemovalTool(kinect.CoordinateMapper);
 
-				_reader = kinect.OpenMultiSourceFrameReader(FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.BodyIndex);
+				_reader = kinect.OpenMultiSourceFrameReader(FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.BodyIndex| FrameSourceTypes.Body);
 				_reader.MultiSourceFrameArrived += Reader_MultiSourceFrameArrived;
 			}
 		}
@@ -72,27 +74,33 @@ namespace kinectBackground
 			using (var colorFrame = reference.ColorFrameReference.AcquireFrame())
 			using (var depthFrame = reference.DepthFrameReference.AcquireFrame())
 			using (var bodyIndexFrame = reference.BodyIndexFrameReference.AcquireFrame())
-			using (var bodyCountFrame = reference.BodyFrameReference.AcquireFrame())
+			using (var bodyFrame = reference.BodyFrameReference.AcquireFrame())
 			{
-
+				distance = 9;
+				bool dataReceived = false;
+				_token = new Token();
 				//repopultate the body List
-				if (bodyCountFrame != null)
+				if (bodyFrame != null)
 				{
-					_bodies = new Body[bodyCountFrame.BodyFrameSource.BodyCount];
-					bodyCountFrame.GetAndRefreshBodyData(_bodies);
-
-
-
-					//when there is no user using the system
-					if (!userActive)
+					if (this._bodies == null)
 					{
-						//find a user
+						_bodies = new Body[bodyFrame.BodyFrameSource.BodyCount];
+					}
 
-						foreach (var body in _bodies)
+					bodyFrame.GetAndRefreshBodyData(_bodies);
+					dataReceived = true;
+				}
+				//when there is no user using the system
+				if (!userActive && dataReceived)
+				{
+					//find a user
+					foreach (var body in _bodies)
+					{
+						if (body.IsTracked)
 						{
 							var point = body.Joints[JointType.SpineBase].Position;
 							var distance = Length(point);
-							if (distance < 2.3)
+							if (distance < 2.3 && distance != 0)
 							{
 								// authenticate him
 								_token.skeletonID = lowestDist(_bodies);
@@ -100,34 +108,39 @@ namespace kinectBackground
 								//fkbtn(); //checks with server that the user is registered
 								break;
 							}
-							Console.WriteLine("nouser close enough")
+							Console.WriteLine("no user close enough");
 						}
+						
 					}
-
-					if (userActive && _token.compareSkeleton(lowestDist(_bodies)))
-					{
-						removeBG(colorFrame, depthFrame, bodyIndexFrame, _token.skeletonID);
-
-					} else
-					{
-						Console.WriteLine("token is invalidated");
-						invalidToken();
-						userActive = false;
-					}
+					Console.WriteLine("no user");
 				}
-			}
 
-			//try
-			//{
-			//    colorFrame.Dispose();
-			//    depthFrame.Dispose();
-			//    bodyIndexFrame.Dispose();
-			//}
-			//catch
-			//{
-			//}
+				if (userActive && _token.compareSkeleton(lowestDist(_bodies)) && dataReceived)
+				{
+					removeBG(colorFrame, depthFrame, bodyIndexFrame, _token.skeletonID);
+
+				} else
+				{
+					Console.WriteLine("token is invalidated");
+					invalidToken();
+					userActive = false;
+					
+				}
+
+
+
+				//try
+				//{
+				//	colorFrame.Dispose();
+				//	depthFrame.Dispose();
+				//	bodyIndexFrame.Dispose();
+				//	bodyCountFrame.Dispose();
+				//} catch
+				//{
+				//}
+			}
 		}
-		
+
 
 		/// <summary>
 		/// removes the background and updates the colorFrame
@@ -145,7 +158,7 @@ namespace kinectBackground
 			}
 		}
 
-		
+
 		/// <summary>
 		/// Calculates the distance the user is away from the kinect
 		/// </summary>
@@ -175,8 +188,8 @@ namespace kinectBackground
 		/// <param name="bodies">IList<Body> from BodyFrameSource.BodyCount</param>
 		/// <returns></returns>
 		private ulong lowestDist(IList<Body> bodies) {
-			ulong ID= 0xff;
-
+			ulong ID = 0xff;
+			distance = 9;
 			foreach (var body in bodies)
 			{
 				var point = body.Joints[JointType.SpineBase].Position;
@@ -191,3 +204,6 @@ namespace kinectBackground
 		}
 	}
 }
+
+
+

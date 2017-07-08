@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Diagnostics;
 
 namespace kinectBackground
 {
@@ -142,7 +143,7 @@ namespace kinectBackground
 						byte player = _bodyData[depthIndex];
 						Console.WriteLine(player + "ID from bodyIndex");
 
-						if (player != 0xff   )//&& player== bodyID
+						if (player != 0xff)//&& player== bodyID
 						{
 							ColorSpacePoint colorPoint = _colorPoints[depthIndex];
 
