@@ -15,6 +15,7 @@ using System.Windows.Shapes;
 using Microsoft.Kinect;
 using Microsoft.Kinect.Wpf.Controls;
 using LightBuzz.Vitruvius;
+using System.Diagnostics;
 
 namespace kinectBackground
 {
@@ -32,7 +33,7 @@ namespace kinectBackground
 		IList<Body> _bodies;
 		double distance;
 		Token _token;
-		bool userActive;
+		bool userActive, dataReceived;
 
 		public MainWindow() {
 			InitializeComponent();
@@ -77,7 +78,7 @@ namespace kinectBackground
 			using (var bodyFrame = reference.BodyFrameReference.AcquireFrame())
 			{
 				distance = 9;
-				bool dataReceived = false;
+				dataReceived = false;
 				_token = new Token();
 				//repopultate the body List
 				if (bodyFrame != null)
@@ -90,43 +91,37 @@ namespace kinectBackground
 					bodyFrame.GetAndRefreshBodyData(_bodies);
 					dataReceived = true;
 				}
-				//when there is no user using the system
-				if (!userActive && dataReceived)
+
+
+				if (!userActive&&dataReceived)
 				{
-					//find a user
-					foreach (var body in _bodies)
+					if (_bodies.Any(body => body.IsTracked == true))
 					{
-						if (body.IsTracked)
-						{
-							var point = body.Joints[JointType.SpineBase].Position;
-							var distance = Length(point);
-							if (distance < 2.3 && distance != 0)
-							{
-								// authenticate him
-								_token.skeletonID = lowestDist(_bodies);
-								userActive = true;
-								//fkbtn(); //checks with server that the user is registered
-								break;
-							}
-							Console.WriteLine("no user close enough");
-						}
-						
+						Body num = _bodies.Closest();
+						Trace.WriteLine(num.TrackingId);
+						int i = _bodies.IndexOf(num);
+						Trace.WriteLine(i+"from outer");
+						userActive = true;
 					}
-					Console.WriteLine("no user");
+				}
+				
+				else if (userActive && dataReceived)
+				{
+					if (_bodies.All(b => b.IsTracked == false))
+					{
+						Trace.WriteLine("tracking released");
+						userActive = false;
+					} else
+					{
+						Body num = _bodies.Closest();
+						int i = _bodies.IndexOf(num);
+						Trace.WriteLine(i + "from outer");
+						removeBG(colorFrame, depthFrame, bodyIndexFrame, i);
+					}
 				}
 
-				if (userActive && _token.compareSkeleton(lowestDist(_bodies)) && dataReceived)
-				{
-					removeBG(colorFrame, depthFrame, bodyIndexFrame, _token.skeletonID);
 
-				} else
-				{
-					Console.WriteLine("token is invalidated");
-					invalidToken();
-					userActive = false;
-					
-				}
-
+				
 
 
 				//try
@@ -149,12 +144,12 @@ namespace kinectBackground
 		/// <param name="depthFrame"></param>
 		/// <param name="bodyIndexFrame"></param>
 		/// <param name="skeleID"></param>
-		private void removeBG(ColorFrame colorFrame, DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame, ulong skeleID) {
+		private void removeBG(ColorFrame colorFrame, DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame,int i) {
 			if (colorFrame != null && depthFrame != null && bodyIndexFrame != null)
 			{
 				Console.WriteLine(_token.skeletonID);
 				// 3) Update the image source.
-				camera.Source = _back.GreenScreen(colorFrame, depthFrame, bodyIndexFrame, _token.skeletonID);
+				camera.Source = _back.GreenScreen(colorFrame, depthFrame, bodyIndexFrame, i);
 			}
 		}
 

@@ -85,7 +85,7 @@ namespace kinectBackground
 		#endregion
 
 
-		public BitmapSource GreenScreen(ColorFrame colorFrame, DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame, ulong skeleID/*, BodyFrame bodyFrame*/) {
+		public BitmapSource GreenScreen(ColorFrame colorFrame, DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame, int indexID) {
 			int colorWidth = colorFrame.FrameDescription.Width;
 			int colorHeight = colorFrame.FrameDescription.Height;
 
@@ -138,12 +138,13 @@ namespace kinectBackground
 				{
 					for (int x = 0; x < depthWidth; ++x)
 					{
-						int depthIndex = (y * depthWidth) + x;
+						int depthIndex = (y * depthWidth) + x;  //each pixel in a frame
+						//Trace.WriteLine(depthIndex+" depthIndex");
+						byte player = _bodyData[depthIndex]; //255 is null player
+						//Trace.WriteLine(_bodyData[depthIndex].ToString() + "ID from bodyIndex");
 
-						byte player = _bodyData[depthIndex];
-						Console.WriteLine(player + "ID from bodyIndex");
 
-						if (player != 0xff)//&& player== bodyID
+						if (player != 0xff && player == indexID)//&& player== bodyID
 						{
 							ColorSpacePoint colorPoint = _colorPoints[depthIndex];
 
