@@ -85,7 +85,7 @@ namespace kinectBackground
 		#endregion
 
 
-		public BitmapSource GreenScreen(ColorFrame colorFrame, DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame, int indexID) {
+		public WriteableBitmap GreenScreen(ColorFrame colorFrame, DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame, int indexID) {
 			int colorWidth = colorFrame.FrameDescription.Width;
 			int colorHeight = colorFrame.FrameDescription.Height;
 

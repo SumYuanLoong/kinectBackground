@@ -32,15 +32,19 @@ namespace kinectBackground
 		BackGroundRemovalTool _back;
 		IList<Body> _bodies;
 		double distance;
+
+		//Identity stuff
 		Token _token;
-		bool userActive, dataReceived;
+		CognitiveCall cc = new CognitiveCall();
+		bool userAuthenticated, dataReceived;
+		WriteableBitmap bitmap;
 
 		public MainWindow() {
 			InitializeComponent();
 			_token = new Token();
-			_token.skeletonID = 0xff;
-			userActive = false;
-			distance = 9;
+			_token.skeletonID = 254;//255 is default null and 254 is unreachable
+			userAuthenticated = false;
+			distance = 9;//max distance of detection is 8m
 		}
 		private void Window_Loaded(object sender, RoutedEventArgs e) {
 			kinect = KinectSensor.GetDefault();
@@ -52,7 +56,7 @@ namespace kinectBackground
 				// 2) Initialize the background removal tool.
 				_back = new BackGroundRemovalTool(kinect.CoordinateMapper);
 
-				_reader = kinect.OpenMultiSourceFrameReader(FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.BodyIndex| FrameSourceTypes.Body);
+				_reader = kinect.OpenMultiSourceFrameReader(FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.BodyIndex | FrameSourceTypes.Body);
 				_reader.MultiSourceFrameArrived += Reader_MultiSourceFrameArrived;
 			}
 		}
@@ -69,7 +73,7 @@ namespace kinectBackground
 			}
 		}
 
-		void Reader_MultiSourceFrameArrived(object sender, MultiSourceFrameArrivedEventArgs e) {
+		async void Reader_MultiSourceFrameArrived(object sender, MultiSourceFrameArrivedEventArgs e) {
 			//init the frames
 			var reference = e.FrameReference.AcquireFrame();
 			using (var colorFrame = reference.ColorFrameReference.AcquireFrame())
@@ -77,9 +81,7 @@ namespace kinectBackground
 			using (var bodyIndexFrame = reference.BodyIndexFrameReference.AcquireFrame())
 			using (var bodyFrame = reference.BodyFrameReference.AcquireFrame())
 			{
-				distance = 9;
 				dataReceived = false;
-				_token = new Token();
 				//repopultate the body List
 				if (bodyFrame != null)
 				{
@@ -92,36 +94,62 @@ namespace kinectBackground
 					dataReceived = true;
 				}
 
-
-				if (!userActive&&dataReceived)
+				if (!userAuthenticated && dataReceived && _bodies.Any(body => body.IsTracked == true))
 				{
-					if (_bodies.Any(body => body.IsTracked == true))
+					_token = new Token();
+					Body num = _bodies.Closest();
+					//Trace.WriteLine(num.TrackingId);
+					Trace.WriteLine(Length(num.Joints[JointType.SpineBase].Position));
+					if (Length(num.Joints[JointType.SpineBase].Position) < 2.3)
 					{
-						Body num = _bodies.Closest();
-						Trace.WriteLine(num.TrackingId);
-						int i = _bodies.IndexOf(num);
-						Trace.WriteLine(i+"from outer");
-						userActive = true;
+						_token.skeletonID = _bodies.IndexOf(num);
+						Trace.WriteLine(_token.skeletonID + "from outer");
+						try
+						{
+							bitmap = _back.GreenScreen(colorFrame, depthFrame, bodyIndexFrame, _token.skeletonID);
+							camera.Source = bitmap;
+							_token = await cc.ImageToBinary(bitmap, _token);
+							if (_token.serToken != null)
+							{
+								Trace.WriteLine("user found");
+								userAuthenticated = true;
+								_token.bod = num;
+							}
+								
+						} catch {	}
 					}
-				}
-				
-				else if (userActive && dataReceived)
+
+
+				} else if (userAuthenticated && dataReceived)
 				{
 					if (_bodies.All(b => b.IsTracked == false))
 					{
 						Trace.WriteLine("tracking released");
-						userActive = false;
-					} else
+						invalidToken();
+						userAuthenticated = false;
+					} else if(_bodies[_token.skeletonID].TrackingId==_token.bod.TrackingId)
 					{
-						Body num = _bodies.Closest();
-						int i = _bodies.IndexOf(num);
-						Trace.WriteLine(i + "from outer");
-						removeBG(colorFrame, depthFrame, bodyIndexFrame, i);
+						Trace.WriteLine("tracking released");
+						invalidToken();
+						userAuthenticated = false;
 					}
-				}
+					if (Length(_bodies[_token.skeletonID].Joints[JointType.SpineBase].Position) > 3)
+					{
+						Trace.WriteLine("tracking released");
+						invalidToken();
+						userAuthenticated = false;
+					}else
+					removeBG(colorFrame, depthFrame, bodyIndexFrame, _token.skeletonID);
+				} 
+				//else
+				//{
+				//	Trace.WriteLine("tracking released");
+				//	invalidToken();
+				//	userAuthenticated = false;
+				//}
 
 
-				
+
 
 
 				//try
@@ -137,6 +165,8 @@ namespace kinectBackground
 		}
 
 
+		
+
 		/// <summary>
 		/// removes the background and updates the colorFrame
 		/// </summary>
@@ -144,7 +174,7 @@ namespace kinectBackground
 		/// <param name="depthFrame"></param>
 		/// <param name="bodyIndexFrame"></param>
 		/// <param name="skeleID"></param>
-		private void removeBG(ColorFrame colorFrame, DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame,int i) {
+		private void removeBG(ColorFrame colorFrame, DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame, int i) {
 			if (colorFrame != null && depthFrame != null && bodyIndexFrame != null)
 			{
 				Console.WriteLine(_token.skeletonID);
@@ -173,29 +203,6 @@ namespace kinectBackground
 		/// </summary>
 		private void invalidToken() {
 			_token = null;
-			distance = 9;
-		}
-
-
-		/// <summary>
-		/// finds the cloest person to the kinect
-		/// </summary>
-		/// <param name="bodies">IList<Body> from BodyFrameSource.BodyCount</param>
-		/// <returns></returns>
-		private ulong lowestDist(IList<Body> bodies) {
-			ulong ID = 0xff;
-			distance = 9;
-			foreach (var body in bodies)
-			{
-				var point = body.Joints[JointType.SpineBase].Position;
-				if (Length(point) < distance)
-				{
-					distance = Length(point);
-					ID = body.TrackingId;
-				}
-			}
-			return ID;
-			//return _token.skeletonID;
 		}
 	}
 }

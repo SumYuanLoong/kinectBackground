@@ -9,16 +9,12 @@ namespace kinectBackground
 {
 	class Token
 	{
-		public ulong skeletonID;
-		public int serToken;
+		public int skeletonID;
+		public string serToken;
 
-		public string Username;
-
-
-		public bool compareSkeleton(ulong Id) {
-			return Id.Equals(skeletonID);
-		}
-
+		public string username;
+		public string userId;
+		public Body bod;
 
 	}
 }
